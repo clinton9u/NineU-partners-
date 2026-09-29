@@ -1,0 +1,78 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NineU Partners</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0f0d;color:#e8efe9;font:15px system-ui,sans-serif;padding-bottom:76px}
+main{max-width:640px;margin:auto;padding:16px}h1{font-size:22px;letter-spacing:1px;margin:8px 0}h2{font-size:15px;margin:20px 0 8px;color:#9fb5a6}
+.g{display:grid;grid-template-columns:1fr 1fr;gap:10px}.c{background:#131b17;border:1px solid #22302a;border-radius:14px;padding:14px;margin-bottom:10px}
+.c small{color:#7f958a;display:block}.c b{font-size:22px;display:block;margin-top:4px}.gold b{color:#f5c542}.grn b{color:#3ddc84}.blu b{color:#4aa8ff}.org b{color:#ff9a3c}
+input,select,button{font:inherit;width:100%;padding:11px;border-radius:10px;border:1px solid #2b3b33;background:#0f1613;color:#e8efe9;margin:4px 0}
+button{background:#1f7a4c;border:0;font-weight:600;cursor:pointer}button.s{background:#26332c;width:auto;padding:8px 12px;margin:4px 4px 0 0;font-size:13px}button.r{background:#7a2b2b}
+nav{position:fixed;bottom:0;left:0;right:0;background:#0f1613;border-top:1px solid #22302a;display:flex}nav a{flex:1;text-align:center;padding:14px 2px;font-size:12px;color:#7f958a;cursor:pointer}nav a.on{color:#3ddc84;font-weight:700}
+.bar{height:10px;background:#22302a;border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:#3ddc84}
+.t{display:inline-block;padding:2px 8px;border-radius:9px;font-size:12px;background:#26332c}.t.active,.t.paid{background:#1f7a4c}.t.stopped,.t.rejected{background:#7a2b2b}
+.m{background:#3a2f12;border:1px solid #6b5518;padding:10px;border-radius:10px;margin:10px 0}.row{display:flex;justify-content:space-between;gap:8px}
+</style></head><body><main id="app"></main>
+<script>
+const U='https://pksczzkzojzwrwkdlkrl.supabase.co',K='sb_publishable_1o0ul_wELYPXIJSooOh2tw_2sNNIMXL';
+let S={tok:null,uid:null,p:null,tab:'overview',cur:'NGN',d:{},msg:'',mode:'login'};
+try{const s=JSON.parse(localStorage.getItem('nu')||'null');if(s){S.tok=s.tok;S.uid=s.uid}}catch(e){}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=(x,d=0)=>Number(x||0).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const money=(u,n)=>S.cur==='NGN'?'₦'+num(n):'$'+num(u,2);
+const v=id=>(document.getElementById(id)||{}).value||'';
+async function api(path,o={}){const h={apikey:K,'Content-Type':'application/json',...(o.headers||{})};if(S.tok)h.Authorization='Bearer '+S.tok;
+ const r=await fetch(U+path,{...o,headers:h});const t=await r.text();let j;try{j=JSON.parse(t)}catch(e){j=t}
+ if(!r.ok)throw new Error((j&&(j.message||j.msg||j.error_description))||t);return j}
+const get=q=>api('/rest/v1/'+q),rpc=(f,b)=>api('/rest/v1/rpc/'+f,{method:'POST',body:JSON.stringify(b||{})});
+function save(){try{localStorage.setItem('nu',JSON.stringify({tok:S.tok,uid:S.uid}))}catch(e){}}
+function out(){S.tok=S.uid=S.p=null;try{localStorage.removeItem('nu')}catch(e){}}
+async function load(){
+ const [p,set,ms,sum,cl,wd,lb]=await Promise.all([get('profiles?select=*&id=eq.'+S.uid),get('settings?select=*'),get('milestones?select=*&order=threshold'),rpc('my_summary'),get('clients?select=*&order=id.desc'),get('withdrawals?select=*&order=id.desc'),rpc('leaderboard')]);
+ S.p=p[0];S.d={set:set[0],ms,sum,cl:cl.filter(c=>c.partner_id===S.uid),wd:wd.filter(w=>w.partner_id===S.uid),lb};
+ if(S.p.role==='admin'){S.d.acl=await get('clients?select=*,profiles(full_name,phone)&order=id.desc');S.d.awd=await get('withdrawals?select=*,profiles(full_name)&order=id.desc')}
+}
+async function run(fn){try{S.msg='';await fn();if(S.tok)await load()}catch(e){S.msg=e.message;if(/JWT|expired/i.test(e.message))out()}render()}
+function render(){
+ const a=document.getElementById('app');const m=S.msg?`<div class="m">${esc(S.msg)}</div>`:'';
+ if(!S.tok){a.innerHTML=`<h1>NINEU PARTNERS</h1>${m}<div class="c"><h2>${S.mode==='login'?'Log in':'Create agent account'}</h2>
+ ${S.mode==='signup'?'<input id="fn" placeholder="Full name"><input id="ph" placeholder="Phone number">':''}
+ <input id="em" type="email" placeholder="Email"><input id="pw" type="password" placeholder="Password (min 6)">
+ <button data-a="auth">${S.mode==='login'?'Log in':'Sign up'}</button>
+ <button class="s" data-a="mode">${S.mode==='login'?'New here? Sign up':'Have an account? Log in'}</button></div>`;return}
+ if(!S.p){a.innerHTML='<p>Loading…</p>';return}
+ const d=S.d,s=d.sum,adm=S.p.role==='admin';let h=`<div class="row"><h1>${esc(S.p.full_name||'Partner')}</h1><button class="s" data-a="cur">${S.cur==='NGN'?'₦ → $':'$ → ₦'}</button></div>${m}`;
+ const T=S.tab;
+ if(T==='overview'){const nx=d.ms.find(x=>x.threshold>s.earned_ngn)||d.ms[d.ms.length-1];const pc=Math.min(100,s.earned_ngn/nx.threshold*100);
+  h+=`<div class="g"><div class="c grn"><small>AVAILABLE</small><b>${money(s.available_usd,s.available_ngn)}</b></div><div class="c gold"><small>TOTAL EARNED</small><b>${money(s.earned_usd,s.earned_ngn)}</b></div>
+  <div class="c org"><small>WITHDRAWN</small><b>${money(s.withdrawn_usd,s.withdrawn_ngn)}</b></div><div class="c blu"><small>CLIENTS (ACTIVE / TOTAL)</small><b>${s.active_clients} / ${s.clients}</b></div></div>
+  <div class="c"><small>EARNINGS MILESTONE → ${esc(nx.label)}</small><div class="bar"><i style="width:${pc}%"></i></div></div>
+  <div class="c"><small>YOUR REFERRAL CODE</small><b>${esc(S.p.referral_code||'')}</b></div>
+  <div class="c"><small>YOUR RATES</small>${d.set.setup_pct}% of the setup fee, then ${d.set.monthly_pct}% of every monthly payment your client makes.</div>`}
+ if(T==='clients'){h+=`<div class="c"><h2>Add a client</h2><input id="bn" placeholder="Business name"><input id="ct" placeholder="Contact (phone / email)"><button data-a="addc">Add client</button>
+  <small style="color:#7f958a">Fees: $${num(d.set.default_setup_usd)} setup + $${num(d.set.default_monthly_usd)}/month. Commission is credited after the admin confirms the client's payment.</small></div>`;
+  h+=d.cl.map(c=>{const u=c.monthly_fee_usd*d.set.monthly_pct/100;return`<div class="c"><div class="row"><b style="font-size:16px">${esc(c.business_name)}</b><span class="t ${esc(c.status)}">${esc(c.status)}</span></div><small>${esc(c.contact)}</small>Earns you ${money(u,u*d.set.fx_rate)} / month</div>`}).join('')||'<p>No clients yet.</p>'}
+ if(T==='withdraw'){const l=d.wd[0]||{};h+=`<div class="c grn"><small>AVAILABLE TO WITHDRAW</small><b>₦${num(s.available_ngn)}</b></div><div class="c"><input id="wa" type="number" placeholder="Amount in ₦"><input id="wb" placeholder="Bank name" value="${esc(l.bank_name||'')}"><input id="wn" placeholder="Account number" value="${esc(l.account_number||'')}"><input id="wm" placeholder="Account name" value="${esc(l.account_name||'')}"><button data-a="wd">Request withdrawal</button></div><h2>History</h2>`;
+  h+=d.wd.map(w=>`<div class="c"><div class="row"><b>₦${num(w.amount_ngn)}</b><span class="t ${esc(w.status)}">${esc(w.status)}</span></div><small>${new Date(w.created_at).toLocaleDateString()}</small></div>`).join('')||'<p>No withdrawals yet.</p>'}
+ if(T==='leaders'){h+=d.lb.map((x,i)=>`<div class="c row"><span>${i+1}. ${esc(x.name)} <small>${x.clients} clients</small></span><b style="font-size:16px">${money(x.earned_usd,x.earned_ngn)}</b></div>`).join('')||'<p>No agents yet.</p>'}
+ if(T==='admin'&&adm){const st=d.set;h+=`<div class="c"><h2>Settings</h2><small>Exchange rate ₦ per $1</small><input id="s1" type="number" value="${st.fx_rate}"><small>Setup commission %</small><input id="s2" type="number" value="${st.setup_pct}"><small>Monthly commission %</small><input id="s3" type="number" value="${st.monthly_pct}"><small>Default setup fee $</small><input id="s4" type="number" value="${st.default_setup_usd}"><small>Default monthly fee $</small><input id="s5" type="number" value="${st.default_monthly_usd}"><button data-a="set">Save settings</button></div>`;
+  h+='<h2>Withdrawals to pay</h2>'+(d.awd.filter(w=>w.status==='pending').map(w=>`<div class="c"><b>₦${num(w.amount_ngn)}</b> · ${esc(w.profiles?.full_name)}<br><small>${esc(w.bank_name)} · ${esc(w.account_number)} · ${esc(w.account_name)}</small><button class="s" data-a="wp" data-id="${w.id}" data-k="paid">Mark paid</button><button class="s r" data-a="wp" data-id="${w.id}" data-k="rejected">Reject</button></div>`).join('')||'<p>None pending.</p>');
+  h+='<h2>Clients</h2>'+d.acl.map(c=>`<div class="c"><div class="row"><b>${esc(c.business_name)}</b><span class="t ${esc(c.status)}">${esc(c.status)}</span></div><small>Agent: ${esc(c.profiles?.full_name)} · ${esc(c.contact)} · $${num(c.setup_fee_usd)} + $${num(c.monthly_fee_usd)}/mo</small>
+  ${c.status==='pending'?`<button class="s" data-a="pay" data-id="${c.id}" data-k="setup">Confirm setup payment</button>`:''}
+  ${c.status==='active'?`<input type="month" id="mo${c.id}" value="${new Date().toISOString().slice(0,7)}"><button class="s" data-a="pay" data-id="${c.id}" data-k="monthly">Confirm monthly payment</button><button class="s r" data-a="stop" data-id="${c.id}">Stop client</button>`:''}</div>`).join('')}
+ const tabs=[['overview','Overview'],['clients','Clients'],['withdraw','Withdraw'],['leaders','Leaders']];if(adm)tabs.push(['admin','Admin']);
+ h+=`<button class="s" data-a="out" style="margin-top:20px">Log out</button><nav>${tabs.map(t=>`<a data-a="tab" data-k="${t[0]}" class="${T===t[0]?'on':''}">${t[1]}</a>`).join('')}</nav>`;a.innerHTML=h}
+document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const a=el.dataset.a,id=+el.dataset.id,k=el.dataset.k;
+ if(a==='tab'){S.tab=k;S.msg='';return render()}if(a==='cur'){S.cur=S.cur==='NGN'?'USD':'NGN';return render()}
+ if(a==='mode'){S.mode=S.mode==='login'?'signup':'login';S.msg='';return render()}if(a==='out'){out();S.msg='';return render()}
+ if(a==='auth')return run(async()=>{const em=v('em').trim(),pw=v('pw');
+  if(S.mode==='signup'){const r=await api('/auth/v1/signup',{method:'POST',body:JSON.stringify({email:em,password:pw,data:{full_name:v('fn').trim(),phone:v('ph').trim()}})});
+   if(!r.access_token){S.mode='login';S.msg='Account created. Check your email to confirm it, then log in.';return}S.tok=r.access_token;S.uid=r.user.id}
+  else{const r=await api('/auth/v1/token?grant_type=password',{method:'POST',body:JSON.stringify({email:em,password:pw})});S.tok=r.access_token;S.uid=r.user.id}save()});
+ if(a==='addc')return run(async()=>{await rpc('partner_add_client',{p_business:v('bn'),p_contact:v('ct')});S.msg='Client added. Waiting for the admin to confirm payment.'});
+ if(a==='wd')return run(async()=>{await rpc('request_withdrawal',{p_ngn:+v('wa'),p_bank:v('wb'),p_number:v('wn'),p_name:v('wm')});S.msg='Withdrawal requested.'});
+ if(a==='pay')return run(async()=>{const mo=k==='monthly'?v('mo'+id)+'-01':null;await rpc('admin_confirm_payment',{p_client:id,p_kind:k,p_period:mo});S.msg='Payment confirmed and commission credited.'});
+ if(a==='stop'&&confirm('Stop this client? No more commission will be earned.'))return run(()=>rpc('admin_stop_client',{p_client:id}));
+ if(a==='wp')return run(()=>rpc('admin_process_withdrawal',{p_id:id,p_action:k}));
+ if(a==='set')return run(async()=>{await rpc('admin_set_settings',{p_fx:+v('s1'),p_setup_pct:+v('s2'),p_monthly_pct:+v('s3'),p_def_setup:+v('s4'),p_def_monthly:+v('s5')});S.msg='Settings saved.'});
+});
+render();if(S.tok)run(async()=>{});
+</script></body></html>
